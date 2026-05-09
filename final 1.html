@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Enhanced: URL Params vs JSON Matches</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        textarea,
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        textarea {
+            height: 160px;
+        }
+
+        textarea:focus,
+        input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        .match-item {
+            background: linear-gradient(90deg, #d4edda, #c3e6cb);
+            border: 1px solid #c3e6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
+        }
+
+        .param-name {
+            font-weight: bold;
+            color: #155724;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+
+        .match-value {
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 0 8px 0 4px;
+        }
+
+        .json-paths {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .json-path-badge {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .no-matches {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #dee2e6;
+        }
+
+        .debug-toggle {
+            background: #6c757d;
+            margin-left: 10px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .debug-section {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .debug-section.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>🎯 URL Params vs JSON Matcher</h2>
+        <label>📄 JSON Data:</label><br />
+        <textarea id="jsonInput">
+{
+ "application": {
+ "name": "MyCoolApp",
+ "version": "1.0.0"
+ },
+ "user": "abc",
+ "page": "home",
+ "v85": "MyCoolApp",
+ "debug": false
+}
+ </textarea>
+        <br /><br />
+        <label>🔗 URL:</label><br />
+        <input id="urlInput" type="text" value="https://example.com/home?page=home&user=abc&v85=MyCoolApp&debug=test"
+            placeholder="Enter full URL with query parameters" />
+        <br />
+        <button onclick="runCompare()">🚀 Compare & Highlight Matches</button>
+        <button class="debug-toggle" onclick="toggleDebug()">🔍 Debug Info</button>
+        <div class="results-section">
+            <h3>✅ Matching Query Parameters:</h3>
+            <div id="matchList"></div>
+        </div>
+        <div id="debugSection" class="debug-section">
+            <pre id="resultOutput"></pre>
+        </div>
+    </div>
+    <script>
+        let debugVisible = false;
+
+        function buildValueToPathsMap(obj, currentPath = "", map = {}) {
+            if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+                Object.keys(obj).forEach((key) => {
+                    const val = obj[key];
+                    const path = currentPath ? `${currentPath}.${key}` : key;
+                    if (val && typeof val === "object" && !Array.isArray(val)) {
+                        buildValueToPathsMap(val, path, map);
+                    } else if (val !== undefined && val !== null) {
+                        const strVal = String(val);
+                        if (!map[strVal]) map[strVal] = [];
+                        if (!map[strVal].includes(path)) {
+                            map[strVal].push(path);
+                        }
+                    }
+                });
+            }
+            return map;
+        }
+
+        function getUrlQueryObject(urlString) {
+            try {
+                const url = new URL(urlString);
+                const queryObj = {};
+                url.searchParams.forEach((value, key) => {
+                    queryObj[key] = value;
+                });
+                return queryObj;
+            } catch (e) {
+                throw new Error("Invalid URL format");
+            }
+        }
+
+        function getMatchingParamsWithJsonPaths(jsonData, urlString) {
+            const valueToPaths = buildValueToPathsMap(jsonData);
+            const queryParams = getUrlQueryObject(urlString);
+            const matches = [];
+            Object.entries(queryParams).forEach(([key, value]) => {
+                const strValue = String(value);
+                if (valueToPaths[strValue] && valueToPaths[strValue].length > 0) {
+                    matches.push({ param: key, value: strValue, jsonPaths: valueToPaths[strValue] });
+                }
+            });
+            return { valueToPaths, queryParams, matches };
+        }
+
+// ✅ STRICT GROUPING VERSION (application / page / registration / other)
+function runCompare() {
+
+    const ignoreList = ["AQB","ndh","pf","fid","cdp","Resoultion","bh","AEQ","AQE","c.","a.","Resolution",".a",".c","s"];
+    const specialParams = ["v21", "l1", "events", "v249"];
+
+    const jsonText = document.getElementById("jsonInput").value;
+    const urlText = document.getElementById("urlInput").value;
+
+    const matchListEl = document.getElementById("matchList");
+    const outputEl = document.getElementById("resultOutput");
+
+    matchListEl.innerHTML = "";
+
+    try {
+        const jsonData = JSON.parse(jsonText);
+        const { matches, valueToPaths, queryParams } =
+            getMatchingParamsWithJsonPaths(jsonData, urlText);
+
+        let finalList = [];
+
+        // ✅ Filter out ignored params
+        matches.forEach(m => {
+            if (!ignoreList.includes(m.param)) finalList.push(m);
+        });
+
+        // ✅ Always include v21 & l1 even without match
+        specialParams.forEach(sp => {
+            if (queryParams[sp] && !finalList.some(x => x.param === sp)) {
+                finalList.push({ param: sp, value: queryParams[sp], jsonPaths: [] });
+            }
+        });
+
+        // ✅ NO MATCHES
+        if (finalList.length === 0) {
+            matchListEl.innerHTML =
+                '<div class="no-matches">❌ No matching query parameters found</div>';
+            return;
+        }
+
+        // ✅ STRICT LAYER LOGIC
+        function detectLayer(pathList) {
+            if (pathList.length === 0) return "Other";
+
+            const p = pathList[0];  // example: "application.name"
+
+            if (p.startsWith("data.application.") || p === "data.app_version") return "Application Layer";
+            if (p.startsWith("data.page.")) return "Page Layer";
+            if (p.startsWith("data.registration.")) return "Registration Layer";
+            if (p.startsWith("data.itinerary.")) return "Itinerary Layer";
+            if (p.startsWith("data.tealium_timestamp_utc")) return "Timestamp Layer";
+
+            return "Other";
+        }
+
+        // ✅ GROUP BY LAYER
+        const groups = {
+            "Application Layer": [],
+            "Page Layer": [],
+            "Registration Layer": [],
+            "Itinerary Layer": [],
+            "Timestamp Layer": [],
+	    "Banner Impression and Click Tracking": [],
+            "Event Report": [],
+            "Other": []
+        };
+
+        finalList.forEach(item => {
+
+  	// ✅ Banner Impression & Click Tracking
+  	if (item.param === "l1" || item.param === "events") {
+    		groups["Banner Impression and Click Tracking"].push(item);
+    		return;
+  	}
+
+  	// ✅ Event Report
+  	if (item.param === "v21") {
+    		groups["Event Report"].push(item);
+    		return;
+  	}
+
+  	// ✅ Existing behavior (unchanged)
+  	const layer = detectLayer(item.jsonPaths);
+  	groups[layer].push(item);
+		});
+
+
+        // ✅ RENDER SECTIONS
+        matchListEl.innerHTML = "";
+
+        Object.entries(groups).forEach(([layer, items]) => {
+            if (items.length === 0) return;
+
+            // Section header
+            const header = document.createElement("h3");
+            header.textContent = "📁 " + layer;
+            matchListEl.appendChild(header);
+
+            // Items
+            items.forEach(match => {
+                const div = document.createElement("div");
+                div.className = "match-item";
+                div.innerHTML = `
+                    <span class="param-name">📍 ${match.param}</span>
+                    <span class="match-value">${match.value}</span>
+                    <div class="json-paths">
+                        ${
+                            match.jsonPaths.length
+                                ? match.jsonPaths
+                                    .map(p => `<span class="json-path-badge">📁 ${p}</span>`)
+                                    .join("")
+                                : `<span class="json-path-badge" style="background:#6c757d;">No JSON Match</span>`
+                        }
+                    </div>
+                `;
+                matchListEl.appendChild(div);
+            });
+        });
+
+        // ✅ Debug output unchanged
+        outputEl.textContent =
+            `JSON Values → Paths:\n${JSON.stringify(valueToPaths, null, 2)}\n\n` +
+            `URL Params:\n${JSON.stringify(queryParams, null, 2)}\n\n` +
+            `Matches:\n${JSON.stringify(finalList, null, 2)}`;
+
+    } catch (e) {
+        matchListEl.innerHTML =
+            `<div class="no-matches">❌ Error: ${e.message}</div>`;
+    }
+}
+
+
+        function toggleDebug() {
+            const debugSection = document.getElementById("debugSection");
+            debugVisible = !debugVisible;
+            debugSection.classList.toggle("active", debugVisible);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("urlInput").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") runCompare();
+            });
+            document.getElementById("jsonInput").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") runCompare();
+            });
+        });
+    </script>
+</body>
+
+</html>
