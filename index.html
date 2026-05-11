@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>QA Tagging Validator - URL vs JSON</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 40px;
+        }
+        label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            display: block;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        textarea:focus, input[type="text"]:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+        textarea { height: 220px; resize: vertical; }
+
+        .btn-group {
+            margin: 25px 0;
+        }
+        button {
+            background: linear-gradient(45deg, #4f46e5, #6366f1);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 12px;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+        .section-header {
+            padding: 14px 20px;
+            border-radius: 12px;
+            margin: 28px 0 12px 0;
+            font-size: 19px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .match-section .section-header { background: #ecfdf5; color: #065f46; }
+        .missing-section .section-header { background: #fef2f2; color: #b91c1c; }
+        .empty-section .section-header { background: #fffbeb; color: #92400e; }
+
+        .match-item, .missing-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .match-item:hover, .missing-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.1);
+        }
+
+        .param-name {
+            font-weight: 700;
+            color: #1f2937;
+            font-size: 16px;
+        }
+        .value-bold {
+            font-weight: 700;
+            color: #10b981;
+            background: #f0fdf4;
+            padding: 4px 12px;
+            border-radius: 9999px;
+        }
+        .missing-item .value-bold {
+            color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .json-path-badge {
+            background: linear-gradient(45deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 9999px;
+            font-size: 13px;
+            margin: 4px 4px 4px 0;
+            display: inline-block;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+            font-size: 18px;
+        }
+
+        .debug-toggle {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🎯 QA Tagging Validator</h2>
+            <p style="margin: 8px 0 0 0; opacity: 0.9;">URL Parameters vs JSON Data Comparison Tool</p>
+        </div>
+        
+        <div class="content">
+            <label>📄 JSON Data (from Application)</label>
+            <textarea id="jsonInput">{
+ "application": { "name": "MyCoolApp", "version": "1.0.0" },
+ "page": { "name": "home", "type": "landing" },
+ "registration": { "status": "complete" },
+ "user": "abc",
+ "v85": "MyCoolApp",
+ "debug": false
+}</textarea>
+
+            <label style="margin-top: 20px;">🔗 URL with Query Parameters</label>
+            <input id="urlInput" type="text" value="https://example.com/home?page=home&user=abc&v85=MyCoolApp&debug=test" 
+                   placeholder="Enter full URL..." />
+
+            <div class="btn-group">
+                <button onclick="runQAValidation()">🚀 Run Validation</button>
+                <button onclick="toggleDebug()" class="debug-toggle">🔍 Show Debug</button>
+            </div>
+
+            <div id="results" class="results"></div>
+
+            <div id="debugSection" style="display:none; margin-top:30px; padding:20px; background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0;">
+                <pre id="debugOutput" style="font-size:13px; line-height:1.5; max-height:400px; overflow:auto;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== IGNORE LIST ====================
+        const IGNORE_PATHS = [ /* same as before */ ];
+        
+        function shouldIgnoreGlobally(path) {
+            if (!path) return false;
+            if (path.startsWith("loader.")) return true;
+            if (path.startsWith("data.device")) return true;
+            if (path.startsWith("browser.screen_width")) return true;
+            return IGNORE_PATHS.some(ignore => path === ignore || path.startsWith(ignore + "."));
+        }
+
+        function shouldIgnoreInMissing(path) {
+            if (!path) return false;
+            const ignorePrefixes = ["data.cp", "data.dom", "data.qp", "data.carrier", "browser."];
+            const ignoreList = [
+                "data.tealium_session_event_number","data.app_memory_usage","data.app_build",
+                "data.timestamp_unix","data.request_uuid","data.tealium_account","data.ut.account",
+                "data.tealium_datasource","data.tealium_library_name","data.tealium_library_version",
+                "data.tealium_random","data.app_uuid","data.app_rdns","data.app_name","data.platform",
+                "data.qp.platform","data.os_name","data.enabled_modules","data.enabled_modules_versions",
+                "data.ut.version","data.vendor_google_gtagconversion","data.adobe.debug"
+            ];
+
+            if (ignorePrefixes.some(p => path.startsWith(p))) return true;
+            return ignoreList.some(item => path === item || path.startsWith(item + "."));
+        }
+
+        function getGroupName(path) {
+            if (!path) return "Other";
+            if (path.startsWith("data.application")) return "Application Object";
+            if (path.startsWith("data.page")) return "Page Object";
+            if (path.startsWith("data.registration")) return "Registration Object";
+            if (path.startsWith("data.itinerary")) return "Itinerary Object";
+            if (path.startsWith("data.tealium_timestamp_utc")) return "Timestamp";
+            return "Other";
+        }
+
+        const SECTION_ORDER = ["Application Object","Page Object","Registration Object","Itinerary Object","Timestamp","Other"];
+
+        function buildValueToPathsMap(obj, currentPath = "", map = {}) {
+            if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+                Object.keys(obj).forEach(key => {
+                    const val = obj[key];
+                    const path = currentPath ? `${currentPath}.${key}` : key;
+                    if (shouldIgnoreGlobally(path)) return;
+
+                    if (val && typeof val === "object" && !Array.isArray(val)) {
+                        buildValueToPathsMap(val, path, map);
+                    } else if (val !== undefined) {
+                        const strVal = String(val);
+                        if (!map[strVal]) map[strVal] = [];
+                        if (!map[strVal].includes(path)) map[strVal].push(path);
+                    }
+                });
+            }
+            return map;
+        }
+
+        function getUrlQueryObject(urlString) {
+            try {
+                const url = new URL(urlString);
+                const obj = {};
+                url.searchParams.forEach((value, key) => obj[key] = value);
+                return obj;
+            } catch (e) {
+                throw new Error("Invalid URL");
+            }
+        }
+
+        function runQAValidation() {
+            const jsonText = document.getElementById("jsonInput").value;
+            const urlText = document.getElementById("urlInput").value;
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+
+            try {
+                const jsonData = JSON.parse(jsonText);
+                const valueToPaths = buildValueToPathsMap(jsonData);
+                const queryParams = getUrlQueryObject(urlText);
+
+                let matches = [], missingInURL = [], emptyValues = [];
+
+                Object.entries(valueToPaths).forEach(([value, paths]) => {
+                    const isEmpty = value === "" || value === "null" || value === "undefined" || value === "false";
+
+                    if (isEmpty) {
+                        emptyValues.push({ paths, value: value || "(empty)" });
+                    } else {
+                        const found = Object.entries(queryParams).filter(([_, v]) => String(v) === value);
+                        if (found.length > 0) {
+                            found.forEach(([param]) => matches.push({ param, value, jsonPaths: paths }));
+                        } else if (!shouldIgnoreInMissing(paths[0])) {
+                            missingInURL.push({ value, jsonPaths: paths });
+                        }
+                    }
+                });
+
+                // Grouping logic (same as before)
+                const groupedMatches = {}, groupedMissing = {};
+                matches.forEach(item => {
+                    const g = getGroupName(item.jsonPaths[0]);
+                    if (!groupedMatches[g]) groupedMatches[g] = [];
+                    groupedMatches[g].push(item);
+                });
+                missingInURL.forEach(item => {
+                    const g = getGroupName(item.jsonPaths[0]);
+                    if (!groupedMissing[g]) groupedMissing[g] = [];
+                    groupedMissing[g].push(item);
+                });
+
+                let html = '';
+
+                if (Object.keys(groupedMatches).length) {
+                    html += `<h3 style="color:#10b981; margin:25px 0 15px;">✅ Matched Parameters</h3>`;
+                    SECTION_ORDER.forEach(group => {
+                        if (groupedMatches[group]) {
+                            html += `<div class="section-header match-section">📁 ${group}</div>`;
+                            groupedMatches[group].forEach(m => {
+                                html += `
+                                <div class="match-item">
+                                    <span class="param-name">${m.param}</span> = 
+                                    <span class="value-bold">${m.value}</span><br><br>
+                                    <small>JSON Paths: ${m.jsonPaths.map(p => `<span class="json-path-badge">${p}</span>`).join('')}</small>
+                                </div>`;
+                            });
+                        }
+                    });
+                }
+
+                if (Object.keys(groupedMissing).length) {
+                    html += `<h3 style="color:#ef4444; margin:35px 0 15px;">❌ Missing in URL (Mapping Required)</h3>`;
+                    SECTION_ORDER.forEach(group => {
+                        if (groupedMissing[group]) {
+                            html += `<div class="section-header missing-section">📁 ${group}</div>`;
+                            groupedMissing[group].forEach(item => {
+                                html += `
+                                <div class="missing-item">
+                                    <span class="param-name" style="color:#b91c1c;">${item.value}</span><br><br>
+                                    <small>JSON Paths: ${item.jsonPaths.map(p => `<span class="json-path-badge">${p}</span>`).join('')}</small>
+                                </div>`;
+                            });
+                        }
+                    });
+                }
+
+                if (emptyValues.length) {
+                    html += `<h3 style="color:#f59e0b; margin:35px 0 15px;">⚠️ Empty / Falsy Values</h3>`;
+                    emptyValues.forEach(item => {
+                        const group = getGroupName(item.paths[0]);
+                        html += `<div class="section-header empty-section">📁 ${group}</div>`;
+                        html += `
+                        <div class="missing-item">
+                            <strong>Empty Value:</strong> <span class="value-bold" style="color:#f59e0b;">${item.value}</span><br><br>
+                            <small>Paths: ${item.paths.map(p => `<span class="json-path-badge">${p}</span>`).join('')}</small>
+                        </div>`;
+                    });
+                }
+
+                resultsDiv.innerHTML = html || `<div class="no-results">No relevant data to display.</div>`;
+
+                document.getElementById("debugOutput").textContent = 
+                    `Value → Paths Map:\n${JSON.stringify(valueToPaths, null, 2)}\n\nURL Params:\n${JSON.stringify(queryParams, null, 2)}`;
+
+            } catch (e) {
+                resultsDiv.innerHTML = `<div class="no-results" style="color:red;">❌ Error: ${e.message}</div>`;
+            }
+        }
+
+        function toggleDebug() {
+            const debug = document.getElementById("debugSection");
+            debug.style.display = debug.style.display === "none" ? "block" : "none";
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("urlInput").addEventListener("keypress", e => {
+                if (e.key === "Enter") runQAValidation();
+            });
+        });
+    </script>
+</body>
+</html>
