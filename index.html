@@ -191,6 +191,8 @@
             if (path.startsWith("loader.")) return true;
             if (path.startsWith("data.device")) return true;
             if (path.startsWith("browser.screen_width")) return true;
+            if (path.startsWith("data.cp.")) return true;
+            if (path.startsWith("data.timestamp_offset")) return true;
             return IGNORE_PATHS.some(ignore => path === ignore || path.startsWith(ignore + "."));
         }
 
