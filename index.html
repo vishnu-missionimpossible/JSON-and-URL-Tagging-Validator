@@ -440,10 +440,19 @@
                     groupedMatches[g].push(item);
                 });
                 
+                // For missing values, filter paths by group so only matching group paths are shown
                 missingInURL.forEach(item => {
-                    const g = getGroupName(item.jsonPaths[0]);
-                    if (!groupedMissing[g]) groupedMissing[g] = [];
-                    groupedMissing[g].push(item);
+                    item.jsonPaths.forEach(path => {
+                        const g = getGroupName(path);
+                        if (!groupedMissing[g]) groupedMissing[g] = [];
+                        // Check if this missing value with this path already exists
+                        const exists = groupedMissing[g].some(m => 
+                            m.value === item.value && m.jsonPaths.includes(path)
+                        );
+                        if (!exists) {
+                            groupedMissing[g].push({ value: item.value, jsonPaths: [path] });
+                        }
+                    });
                 });
                 
                 // For empty values, filter paths by group
