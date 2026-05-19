@@ -416,7 +416,11 @@
                     const isEmpty = value === "" || value === "null" || value === "undefined" || value === "false";
 
                     if (isEmpty) {
-                        emptyValues.push({ paths, value: value || "(empty)" });
+                        // Filter paths to only include those belonging to this empty value
+                        const filteredPaths = paths.filter(p => getGroupName(p));
+                        if (filteredPaths.length > 0) {
+                            emptyValues.push({ paths: filteredPaths, value: value || "(empty)" });
+                        }
                     } else {
                         const found = Object.entries(queryParams).filter(([_, v]) => String(v) === value);
                         if (found.length > 0) {
@@ -442,10 +446,19 @@
                     groupedMissing[g].push(item);
                 });
                 
+                // For empty values, filter paths by group
                 emptyValues.forEach(item => {
-                    const g = getGroupName(item.paths[0]);
-                    if (!groupedEmpty[g]) groupedEmpty[g] = [];
-                    groupedEmpty[g].push(item);
+                    item.paths.forEach(path => {
+                        const g = getGroupName(path);
+                        if (!groupedEmpty[g]) groupedEmpty[g] = [];
+                        // Check if this empty value with this path already exists
+                        const exists = groupedEmpty[g].some(e => 
+                            e.value === item.value && e.paths.includes(path)
+                        );
+                        if (!exists) {
+                            groupedEmpty[g].push({ paths: [path], value: item.value });
+                        }
+                    });
                 });
 
                 let html = '';
